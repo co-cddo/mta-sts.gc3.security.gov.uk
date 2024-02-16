@@ -1,0 +1,6 @@
+include:
+ - ".well-known"
+exclude:
+ - "bin/"
+ - ".github/"
+ 

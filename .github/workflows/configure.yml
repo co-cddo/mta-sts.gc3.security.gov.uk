@@ -1,0 +1,78 @@
+name: Configure and maintain mta-sts.txt
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - bin/**
+      - ".well-known/**"
+      - .github/workflows/configure.yml
+      - "*.html"
+  workflow_dispatch:
+
+permissions: write-all
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # by default, it uses a depth of 1
+          # this fetches all history so that we can read each commit
+          fetch-depth: 0
+          ref: ${{ github.head_ref }}
+          
+      - run: |
+          echo "REPOSITORY_NAME=$(
+            echo '${{ github.repository }}' \
+            | awk -F '/' '{print $2}' \
+            | tr '-' '_' \
+            | tr '[:upper:]' '[:lower:]' \
+          )" >> $GITHUB_ENV
+
+      - run: |
+          if [ "$REPOSITORY_NAME" == "mta_sts_template" ]; then
+            echo "IS_TEMPLATE=true" >> $GITHUB_ENV
+          else
+            echo "IS_TEMPLATE=$(ls .github/template.yml &> /dev/null && echo true || echo false)" >> $GITHUB_ENV
+          fi
+          
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test configuration
+        if: env.IS_TEMPLATE == 'true'
+        working-directory: bin/
+        run: |
+          echo "Repo name: ${{ env.REPOSITORY_NAME }}"
+          echo "Template: ${{ env.IS_TEMPLATE }}"
+
+          python -m pip install -r requirements.txt
+          export MTASTS_DOMAIN="mta-sts.digital.cabinet-office.gov.uk"
+          python configure.py
+
+          echo -e "\ncat CNAME:"
+          cat ../CNAME
+
+          echo -e "\ncat .well-known:"
+          cat -A ../.well-known/*
+
+      - name: Push changes
+        if: env.IS_TEMPLATE != 'true'
+        working-directory: bin/
+        run: |
+          python -m pip install -r requirements.txt
+          python configure.py
+          date > ../.well-known/.last-updated.txt
+
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        if: env.IS_TEMPLATE != 'true'
+        with:
+          commit_message: "Automatically deployed using Actions ✅"
+          push_options: --force
