@@ -1,4 +1,4 @@
 version: STSv1
 mode: enforce
 max_age: 1209601
-mx: inbound-smtp.eu-west-1.amazonaws.com
+mx: gc3-security-gov-uk.mail.protection.outlook.com
